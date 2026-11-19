@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  # Training service
+  train:
+    build:
+      context: .
+      target: full
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+      - ./checkpoints:/app/checkpoints
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    command: ["train", "--config", "configs/default.yaml", "--cycles", "10"]
+
+  # Dashboard service
+  dashboard:
+    build:
+      context: .
+      target: full
+    volumes:
+      - ./logs:/app/logs
+    ports:
+      - "8080:8080"
+    command: ["dashboard", "--log-dir", "/app/logs", "--host", "0.0.0.0"]
+
+  # MLflow tracking service
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.10.0
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mlruns:/mlruns
+    command: ["mlflow", "server", "--backend-store-uri", "/mlruns", "--default-artifact-root", "/mlruns"]
+
+  # Development service
+  dev:
+    build:
+      context: .
+      target: dev
+    volumes:
+      - .:/app
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    stdin_open: true
+    tty: true
+    command: ["bash"]
