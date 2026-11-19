@@ -1,0 +1,80 @@
+site_name: EnvGen-LLM Documentation
+site_description: Self-Improving AI Agent Training via LLM-Generated Environments
+site_url: https://envgen-llm.github.io/envgen-llm
+repo_url: https://github.com/envgen-llm/envgen-llm
+repo_name: envgen-llm/envgen-llm
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/lightbulb
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/lightbulb-outline
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+  icon:
+    repo: fontawesome/brands/github
+
+nav:
+  - Home: index.md
+  - Tutorials:
+    - Quickstart: tutorials/quickstart.md
+    - Training Your First Agent: tutorials/first_agent.md
+    - Creating Custom Environments: tutorials/custom_env.md
+  - Guides:
+    - LLM Integration: guides/llm_integration.md
+    - Experiment Tracking: guides/experiment_tracking.md
+    - Docker Usage: guides/docker_usage.md
+    - Multi-Agent Training: guides/multi_agent.md
+  - API Reference:
+    - Agents: api/agents.md
+    - Environments: api/environments.md
+    - LLM Clients: api/llm.md
+    - Pipeline: api/pipeline.md
+    - Rewards: api/rewards.md
+    - Curriculum: api/curriculum.md
+    - Evaluators: api/evaluators.md
+    - Utilities: api/utils.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: ["."]
+          options:
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_category_heading: true
+            show_if_no_docstring: false
+            separate_signature: true
+            line_length: 80
+            docstring_options:
+              ignore_init_summary: false
+            merge_init_into_class: true
+            show_signature_annotations: true
+
+extra:
+  version:
+    provider: mike
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/envgen-llm/envgen-llm

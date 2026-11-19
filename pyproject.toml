@@ -1,0 +1,121 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "envgen-llm"
+version = "1.0.0"
+description = "Self-Improving AI Agent Training via LLM-Generated Environments"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "EnvGen-LLM Contributors"}
+]
+homepage = "https://github.com/envgen-llm/envgen-llm"
+repository = "https://github.com/envgen-llm/envgen-llm"
+keywords = [
+    "reinforcement-learning",
+    "llm",
+    "agent-training",
+    "curriculum-learning",
+    "environment-generation",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+requires-python = ">=3.9"
+dependencies = []
+
+[project.optional-dependencies]
+llm = [
+    "openai>=1.0",
+    "anthropic>=0.18",
+]
+torch = [
+    "torch>=2.0",
+    "numpy>=1.24",
+]
+gymnasium = [
+    "gymnasium>=0.29",
+    "stable-baselines3>=2.0",
+    "numpy>=1.24",
+]
+mlflow = [
+    "mlflow>=2.0",
+]
+dashboard = [
+    "flask>=3.0",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.4.0",
+    "black>=24.0",
+    "bandit>=1.7.0",
+    "pre-commit>=3.0",
+    "mkdocs-material>=9.0",
+    "mkdocstrings[python]>=1.0",
+]
+all = [
+    "envgen-llm[llm,torch,gymnasium,mlflow,dashboard,dev]",
+]
+
+[project.scripts]
+envgen = "envgen.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["envgen*"]
+
+[tool.setuptools.package-data]
+envgen = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v"
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E402", "F401", "F841", "F541", "E741"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["envgen"]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+ignore_missing_imports = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = ["envgen.agents.ppo_torch", "envgen.agents.grpo_torch", "envgen.agents.sb3_agent", "envgen.environments.gymnasium_wrapper"]
+ignore_errors = true
+
+[tool.coverage.run]
+source = ["envgen"]
+branch = true
+omit = ["*/test_*", "*/__pycache__/*", "envgen/dashboard/*", "envgen/cli/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]

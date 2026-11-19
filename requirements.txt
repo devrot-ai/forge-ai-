@@ -1,0 +1,18 @@
+# Core dependencies
+# None required — the framework uses only Python standard library
+
+# Optional dependencies for extended features
+# openai>=1.0          # For OpenAI LLM integration (--llm openai)
+# numpy>=1.24          # For numerical operations (PyTorch agent, Gymnasium)
+# torch>=2.0           # For PyTorch-based PPO agent
+# stable-baselines3>=2.0  # For production RL agents
+# gymnasium>=0.29      # For Gymnasium environment compatibility
+# pyyaml>=6.0          # For YAML config parsing and CLI
+
+# To install all optional dependencies:
+#   pip install -r requirements.txt  # Uncomment the lines above first
+# Or install individually:
+#   pip install openai               # For --llm openai
+#   pip install torch numpy          # For PyTorch PPO agent
+#   pip install gymnasium            # For Gymnasium wrapper
+#   pip install pyyaml               # For YAML config + CLI

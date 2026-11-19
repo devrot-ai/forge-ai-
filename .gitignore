@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.whl
+
+# Virtual environments
+venv/
+env/
+.venv/
+envgen-env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs and temp files
+*.log
+logs/
+*.json
+!package.json
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+.hypothesis/
+
+# Checkpoints and model weights
+*.pt
+*.pth
+*.ckpt
+checkpoints/
+
+# Experiment logs
+mlruns/
+wandb/
+
+# Docker
+.docker/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# MkDocs
+site/
+
+# Benchmarks output
+benchmarks/results/
