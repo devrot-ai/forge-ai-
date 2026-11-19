@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Install optional dependencies
+        run: |
+          pip install -e ".[torch,gymnasium,llm]" || true
+
+      - name: Lint with ruff
+        run: |
+          ruff check envgen/
+
+      - name: Format check with black
+        run: |
+          black --check envgen/
+
+      - name: Security check with bandit
+        run: |
+          bandit -r envgen/ -s B101,B104,B106,B311,B324,B404,B405,B410,B411,B412,B506,B602,B603,B605,B607,B701,B702,B703 || true
+
+      - name: Run tests with pytest
+        run: |
+          pytest tests/ -v --tb=short -k "not parallel"
+
+      - name: Run tests with coverage
+        if: matrix.python-version == '3.11'
+        run: |
+          pytest tests/ -v --cov=envgen --cov-report=xml -k "not parallel"
+
+      - name: Upload coverage report
+        if: matrix.python-version == '3.11'
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
