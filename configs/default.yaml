@@ -1,0 +1,59 @@
+# EnvGen-LLM Configuration
+# Default configuration for the training pipeline
+
+task:
+  description: "Navigate a grid world to collect items and reach the goal."
+  skills:
+    - navigation
+    - planning
+    - reasoning
+    - memory
+    - efficiency
+
+training:
+  max_cycles: 10
+  episodes_per_cycle: 50
+  eval_episodes: 20
+  initial_difficulty: "easy"
+  num_initial_envs: 5
+  save_interval: 5
+
+agent:
+  type: "ppo"
+  learning_rate: 0.1
+  discount_factor: 0.95
+  initial_epsilon: 0.3
+  epsilon_min: 0.05
+  epsilon_decay: 0.95
+  max_experience: 100
+
+curriculum:
+  advance_threshold: 0.7
+  regression_threshold: 0.4
+  min_improvement: 0.05
+
+reward:
+  clip_range: [-10.0, 10.0]
+  components:
+    - name: "success"
+      weight: 1.0
+      type: "sparse"
+    - name: "progress"
+      weight: 0.5
+      type: "progress"
+    - name: "step_penalty"
+      weight: 0.3
+      type: "step_penalty"
+      penalty: -0.01
+
+environment:
+  type: "puzzle"
+  default_grid_size: 5
+  default_num_items: 3
+  default_num_obstacles: 2
+
+llm:
+  # For production, replace with real LLM config
+  client: "mock"
+  # openai_api_key: "${OPENAI_API_KEY}"
+  # model: "gpt-4"
