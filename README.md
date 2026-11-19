@@ -1,403 +1,383 @@
-# 🤖 EnvGen-LLM
+# EnvGen-LLM
 
-**Teach AI agents to learn, by having AI create their training challenges.**
+This project teaches AI agents how to learn by having another AI create their training challenges.
 
-EnvGen-LLM is a framework where a large language model (like GPT or Claude) automatically creates training scenarios for smaller AI agents. The agents practice, get tested, and then the LLM creates *harder* challenges based on where they struggled. It's like having an AI coach that designs personalized workouts.
+Imagine you want to train a robot to navigate mazes. Normally you would spend days designing those mazes, figuring out how hard they should be, and slowly making them tougher as the robot improves. That is boring and slow.
 
----
+So instead, we asked a large language model to do it.
 
-## 🎯 What Problem Does This Solve?
+You tell the LLM what you want in plain English. It builds a training environment. An agent practices inside it. We score how well the agent did. Then the LLM reads those scores and builds a better, harder environment focused on what the agent struggled with. The whole thing repeats, and the agent gets better every round.
 
-Training AI agents is hard. You need to:
-1. **Design good training scenarios** (time-consuming)
-2. **Know what skills to test** (requires expertise)
-3. **Make things progressively harder** (trial and error)
+It is like having a personal coach who watches you train, sees where you are weak, and designs the next workout just for you.
 
-EnvGen-LLM automates all of this. Instead of manually crafting training environments, you describe what you want in plain English, and an LLM builds it, tests your agent, and keeps improving the training based on results.
+## How it works
 
----
+The whole system runs in a loop with four steps.
 
-## 🔄 How It Works (The Simple Version)
+**Step one: The LLM creates a challenge.** You say something like "make a maze that tests navigation and memory." The LLM turns that into a real training environment with walls, items, and goals.
+
+**Step two: The agent practices.** The agent explores the environment, tries different actions, gets rewards for good moves and penalties for bad ones, and slowly learns what works.
+
+**Step three: We score the agent.** After training, an evaluator checks five skills: navigation, planning, reasoning, memory, and efficiency. Each gets a score from zero to one.
+
+**Step four: The LLM adapts.** If memory scored low, the LLM creates a bigger maze with hidden shortcuts. If navigation was fine but planning was weak, it adds more obstacles that require thinking ahead.
+
+Then we go back to step one. The agent keeps getting better.
 
 ```
-   Step 1: LLM Creates Challenge
-   ┌─────────────────────────┐
-   │ "Make a maze that tests  │
-   │  navigation and memory"  │
-   └───────────┬─────────────┘
-               ▼
-   Step 2: Agent Practices
-   ┌─────────────────────────┐
-   │ Agent explores the maze │
-   │ learns from mistakes    │
-   └───────────┬─────────────┘
-               ▼
-   Step 3: Score the Agent
-   ┌─────────────────────────┐
-   │ Navigation: 0.7/1.0     │
-   │ Memory:     0.4/1.0  ←  │
-   │ Planning:   0.6/1.0     │
-   └───────────┬─────────────┘
-               ▼
-   Step 4: LLM Makes It Harder
-   ┌─────────────────────────┐
-   │ "Memory is weak. Create  │
-   │  a bigger maze with     │
-   │  hidden shortcuts"      │
-   └───────────┬─────────────┘
-               ▼
-         Repeat... Agent Gets Better!
+LLM creates challenge
+       |
+       v
+Agent practices
+       |
+       v
+We score the agent
+       |
+       v
+LLM sees what was hard and creates a better challenge
+       |
+       +----> (repeat)
 ```
 
-**In technical terms:** This is called *self-improving reinforcement learning*. The LLM generates environments, the agent trains using reinforcement learning (RL), an evaluator scores 5 different skills, and the cycle repeats with increasingly difficult challenges.
+## Getting started
 
----
-
-## 🚀 Getting Started (5 Minutes)
-
-### Install it
+Install the project:
 
 ```bash
-# Basic installation (works right away)
 pip install -e .
-
-# With extras for neural networks and real LLMs
-pip install -e ".[torch,llm]"
 ```
 
-### Run a demo
+That is enough to run everything with a built-in mock LLM. No API keys needed.
+
+If you want neural network agents or real LLM support, install the extras:
 
 ```bash
-# This runs everything with a built-in mock LLM (no API keys needed)
+pip install -e ".[torch, llm]"
+```
+
+Run the demo:
+
+```bash
 python examples/demo_pipeline.py
 ```
 
-You'll see output like this:
+You will see output like this:
 
 ```
-Cycle 1/5 ─────────────────────────────────
-  Environment: "Simple Grid Puzzle" (Easy)
+Cycle 1/5
+  Environment: Simple Grid Puzzle (Easy)
   Training 20 episodes...
   Evaluation results:
-    Navigation:  ████████░░  0.62
-    Planning:    ██████░░░░  0.48
-    Reasoning:   ███████░░░  0.55
-    Memory:      █████░░░░░  0.38
-    Efficiency:  ████████░░  0.60
+    Navigation:  0.62
+    Planning:    0.48
+    Reasoning:   0.55
+    Memory:      0.38
+    Efficiency:  0.60
 
-Cycle 2/5 ─────────────────────────────────
-  Environment: "Medium Grid Puzzle" (Medium) ← Got harder!
+Cycle 2/5
+  Environment: Medium Grid Puzzle (Medium)
   Training 20 episodes...
   Evaluation results:
-    Navigation:  █████████░  0.71  ← Improved!
-    Planning:    ███████░░░  0.55
+    Navigation:  0.71
+    Planning:    0.55
     ...
 ```
 
-### Use a real LLM (optional)
+The scores go up because the LLM keeps targeting the agent's weak spots.
+
+To use a real LLM instead of the mock one, just add a flag:
 
 ```bash
-# With OpenAI (set OPENAI_API_KEY first)
 python examples/demo_pipeline.py --llm openai
-
-# With local Ollama (run Ollama first)
 python examples/demo_pipeline.py --llm ollama
-
-# With Anthropic Claude (set ANTHROPIC_API_KEY first)
 python examples/demo_pipeline.py --llm anthropic
 ```
 
----
+## The big picture
 
-## 🏗️ The Big Picture
+Here are all the moving parts and how they connect:
 
-Here's how all the pieces fit together:
+The LLM is the coach. It creates training challenges based on your description and the agent's performance.
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                     THE TRAINING LOOP                        │
-│                                                              │
-│   ┌─────────────┐                                           │
-│   │   LLM       │  "Create a training challenge"             │
-│   │  (Coach)    │                                           │
-│   └──────┬──────┘                                           │
-│          │ Environment Config                                │
-│          ▼                                                   │
-│   ┌─────────────┐                                           │
-│   │ Environment │  The actual challenge (maze, puzzle, etc)  │
-│   │  (Gym)      │                                           │
-│   └──────┬──────┘                                           │
-│          │ Agent practices here                              │
-│          ▼                                                   │
-│   ┌─────────────┐                                           │
-│   │    Agent    │  Learns by trying things & getting rewards │
-│   │  (Student)  │                                           │
-│   └──────┬──────┘                                           │
-│          │ Episode data                                      │
-│          ▼                                                   │
-│   ┌─────────────┐     ┌─────────────┐                       │
-│   │  Evaluator  │────▶│   Reward    │  Shapes what the      │
-│   │ (Teacher)   │     │   Engine    │  agent learns to do   │
-│   └──────┬──────┘     └─────────────┘                       │
-│          │ Skill scores                                      │
-│          ▼                                                   │
-│   ┌─────────────┐                                           │
-│   │ Curriculum  │  "Should we make it harder/easier?"       │
-│   │  (Tracker)  │                                           │
-│   └──────┬──────┘                                           │
-│          │ Feedback for next round                           │
-│          └──────────────┬───────────────────────────────────┘
-│                         ▼                                    │
-│                 Back to LLM with                            │
-│                 "Agent struggled at X, focus on that"       │
-└──────────────────────────────────────────────────────────────┘
-```
+The environment is the gym. It is the actual challenge the agent practices in, like a maze or a puzzle grid.
 
----
+The agent is the student. It learns by trying actions and getting rewards or penalties.
 
-## 🎮 What Can Agents Learn? (Environments)
+The evaluator is the teacher. It scores the agent on five different skills after each training round.
 
-Think of environments as different types of training gyms:
+The reward engine shapes what the agent learns by giving points for good behavior and penalties for bad behavior.
 
-| Environment | What It Is | What It Teaches |
-|---|---|---|
-| **🧩 Puzzle** | A grid where the agent navigates, picks up items, and reaches a goal | Basic navigation and planning |
-| **🏰 Maze** | A procedurally generated maze the agent must escape | Spatial reasoning and memory |
-| **📦 Resource** | Collect and manage limited resources to complete tasks | Decision-making under constraints |
-| **📝 Text** | Answer math problems, logic puzzles, and pattern questions | Reasoning and problem-solving |
-| **🎪 CartPole** | Balance a pole on a moving cart (classic physics problem) | Timing and continuous control |
-| **👥 Multi-Agent** | Two agents on the same grid, competing or cooperating | Strategy and interaction |
-
-**Example — what a Puzzle environment looks like:**
+The curriculum manager tracks difficulty and decides when to make things harder or easier.
 
 ```
-  ┌───┬───┬───┬───┬───┐
-  │   │ # │   │ # │   │   # = wall
-  ├───┼───┼───┼───┼───┤   @ = agent (you)
-  │ @ │   │ # │   │ * │   * = item to collect
-  ├───┼───┼───┼───┼───┤   G = goal (finish here)
-  │   │ # │   │ # │   │
-  ├───┼───┼───┼───┼───┤
-  │ # │   │ * │   │ G │
-  └───┴───┴───┴───┴───┘
-
-  The agent needs to: navigate around walls, collect items (*), and reach the goal (G)
++------------------+
+|    LLM           |  Creates challenges
+|   (Coach)        |
++--------+---------+
+         |
+         v
++--------+---------+
+|   Environment    |  The actual challenge
+|     (Gym)        |
++--------+---------+
+         |
+         v
++--------+---------+
+|     Agent        |  Learns by trying things
+|    (Student)     |
++--------+---------+
+         |
+         v
++--------+---------+     +--------------+
+|   Evaluator      |---->|  Reward      |
+|    (Teacher)     |     |   Engine     |
++--------+---------+     +--------------+
+         |
+         v
++--------+---------+
+|   Curriculum   |  Decides next difficulty
+|    (Tracker)   |
++--------+---------+
+         |
+         +----> Back to LLM with feedback
 ```
 
----
+## Environments
 
-## 🧠 Who Can Be the Agent? (Agent Types)
+Environments are the training grounds. Think of them as different types of gyms for your agent.
 
-Different agents use different learning strategies. Think of them as different study methods:
+Puzzle: A grid where the agent moves around, collects items, and reaches a goal. It teaches basic navigation and planning.
 
-| Agent | How It Learns | When to Use |
-|---|---|---|
-| **PPO** (Simple) | Keeps a table of what worked before | Quick experiments, no GPU needed |
-| **PPO-Torch** | Neural network that recognizes patterns | When you want real deep learning |
-| **GRPO** | Learns from groups of similar situations | When you want to compare multiple strategies |
-| **GRPO-Torch** | Neural network version of GRPO | Best of both worlds |
-| **RNN/LSTM** | Remembers what happened earlier (has memory) | Tasks where past matters |
-| **Transformer** | Looks at the whole history at once | Complex tasks with long sequences |
-| **Nearest-Neighbor** | "What worked in similar situations?" | Simple baseline for comparison |
-| **SB3** | Uses battle-tested algorithms from Stable-Baselines3 | When you want proven methods |
+Maze: A procedurally generated maze the agent must escape. It teaches spatial reasoning and memory.
 
-**Simple analogy:**
-- **PPO** = studying flashcards
-- **RNN** = remembering a story from start to finish
-- **Transformer** = reading the whole book, then answering questions
-- **Nearest-Neighbor** = "Last time I saw this, I did X and it worked"
+Resource: The agent collects and manages limited resources to complete tasks. It teaches decision making under constraints.
 
----
+Text: The agent answers math problems, logic puzzles, and pattern questions. It teaches reasoning and problem solving.
 
-## 💬 Who Creates the Challenges? (LLM Backends)
+CartPole: A classic physics problem where the agent balances a pole on a moving cart. It teaches timing and continuous control.
 
-The "coach" that designs training scenarios can be:
+Multi-Agent: Two agents on the same grid, either competing or cooperating. It teaches strategy and interaction.
 
-| Backend | What It Is | Cost |
-|---|---|---|
-| **Mock** | Built-in simulator (no real AI) | Free, for testing |
-| **OpenAI** | GPT-4o-mini via API | Pay per use |
-| **Ollama** | Runs on your computer | Free, needs good GPU |
-| **Anthropic** | Claude via API | Pay per use |
+Here is what a puzzle environment looks like:
 
----
+```
++---+---+---+---+---+
+|   | # |   | # |   |    # = wall
++---+---+---+---+---+    @ = agent
+| @ |   | # |   | * |    * = item to collect
++---+---+---+---+---+    G = goal
+|   | # |   | # |   |
++---+---+---+---+---+
+| # |   | * |   | G |
++---+---+---+---+---+
 
-## 🛠️ Common Things You'll Want to Do
+The agent needs to navigate around walls, collect items, and reach the goal.
+```
 
-### Train an agent
+## Agent types
+
+Different agents learn in different ways. Here is what each one does in simple terms.
+
+PPO (Simple): Keeps a table of what worked before. Fast to run, no GPU needed. Good for quick experiments.
+
+PPO-Torch: A neural network that recognizes patterns. This is real deep learning. Use it when you want the agent to generalize beyond what it has seen.
+
+GRPO: Learns from groups of similar situations. Good when you want to compare multiple strategies at once.
+
+GRPO-Torch: Neural network version of GRPO. Combines both ideas.
+
+RNN/LSTM: Remembers what happened earlier. Has actual memory. Use it for tasks where the past matters, like remembering where items were.
+
+Transformer: Looks at the entire history of what happened all at once. Best for complex tasks with long sequences of events.
+
+Nearest-Neighbor: Asks "what worked in similar situations before?" A simple baseline for comparison.
+
+SB3: Uses proven algorithms from the Stable-Baselines3 library. PPO, SAC, A2C, and DQN are all available.
+
+A simple way to think about it:
+
+PPO is like studying flashcards. You remember what worked last time.
+
+RNN is like remembering a story from start to finish. The order matters.
+
+Transformer is like reading the whole book, then answering questions about any part of it.
+
+Nearest-Neighbor is like saying "last time I saw something like this, I did X and it worked."
+
+## LLM backends
+
+The LLM is the coach that designs training scenarios. You have four options.
+
+Mock: Built-in simulator. No real AI, no API keys. Free and great for testing.
+
+OpenAI: Uses GPT models via the OpenAI API. You pay per use but get powerful environment generation.
+
+Ollama: Runs models on your own computer. Free if you have a good GPU. No data leaves your machine.
+
+Anthropic: Uses Claude models via the Anthropic API. Another paid option with strong reasoning.
+
+## Things you will want to do
+
+Train an agent:
 
 ```bash
-# Basic training
 python -m envgen train --config configs/default.yaml
-
-# With more control
-python -m envgen train --config configs/default.yaml \
-    --agent ppo_torch \        # Use neural network agent
-    --env-type maze \          # Train on mazes
-    --cycles 20 \              # 20 rounds of training
-    --episodes 50              # 50 practice runs per round
 ```
 
-### Compare agents
+You can control every detail:
 
 ```bash
-# See which agent performs best
+python -m envgen train --config configs/default.yaml \
+    --agent ppo_torch \
+    --env-type maze \
+    --cycles 20 \
+    --episodes 50
+```
+
+Compare different agents on the same task:
+
+```bash
 python examples/agent_comparison.py
 ```
 
-### Compare environments
+See which environment is hardest for your agent:
 
 ```bash
-# See which environment is hardest for your agent
-python examples/multi_env_comparison.py
+python examples/multi_env_benchmark.py
 ```
 
-### Evaluate a saved agent
+Test a saved agent without retraining:
 
 ```bash
-# Test a trained agent without retraining
 python -m envgen evaluate --checkpoint my_agent.json --episodes 50
 ```
 
-### Watch training progress in a browser
+Watch training progress in your browser:
 
 ```bash
-# Train with logging
 python -m envgen train --config configs/default.yaml --log-dir ./logs
-
-# Open the dashboard
 python -m envgen dashboard --log-dir ./logs
-# Then visit http://localhost:8080
 ```
 
-### Find the best settings automatically
+Then open http://localhost:8080 to see charts of how your agent improved.
+
+Find the best settings automatically:
 
 ```bash
-# Auto-search for the best learning rate, network size, etc.
 python -m envgen hyperparam-search --agent ppo_torch --episodes 10
 ```
 
----
+Optimize reward weights:
 
-## 📊 Understanding the Output
-
-When training runs, you'll see skill scores like this:
-
-```
-Skill Evaluation (Cycle 5/10):
-  Navigation:  ██████████  0.92  ← Agent moves well
-  Planning:    ████████░░  0.74  ← Agent plans decently
-  Reasoning:   ███████░░░  0.65  ← Agent solves problems okay
-  Memory:      ██████░░░░  0.58  ← Agent forgets sometimes
-  Efficiency:  █████████░  0.85  ← Agent doesn't waste moves
+```bash
+python -m envgen optimize-rewards --agent ppo_torch --episodes 10
 ```
 
-**What these mean:**
-- **Navigation** — Can the agent get from A to B without hitting walls?
-- **Planning** — Does the agent think ahead, or just react?
-- **Reasoning** — Can the agent figure out rules and patterns?
-- **Memory** — Does the agent remember what it saw earlier?
-- **Efficiency** — Does the agent take the shortest path, or wander around?
+## Understanding the scores
 
----
+When training runs, you will see five skill scores. Here is what each one means.
 
-## 🔧 Configuration
+Navigation: Can the agent get from point A to point B without hitting walls?
 
-Everything is controlled through a simple YAML file (`configs/default.yaml`):
+Planning: Does the agent think ahead, or does it just react to what it sees right now?
+
+Reasoning: Can the agent figure out rules and patterns in the environment?
+
+Memory: Does the agent remember what it saw earlier in the episode?
+
+Efficiency: Does the agent take the shortest path, or does it wander around wasting moves?
+
+Scores range from zero to one. A score of zero point nine means the agent is really good at that skill. A score of zero point three means there is room to improve.
+
+## Configuration
+
+Everything is controlled through a YAML file. The default one is at configs/default.yaml:
 
 ```yaml
-# What should the agent learn?
 task:
   description: "Navigate a grid, collect items, reach the goal"
   skills: [navigation, planning, reasoning, memory, efficiency]
 
-# How long to train?
 training:
-  max_cycles: 10           # Number of training rounds
-  episodes_per_cycle: 50   # Practice runs per round
+  max_cycles: 10
+  episodes_per_cycle: 50
 
-# Which agent to use?
 agent:
   type: ppo_torch
   config:
-    learning_rate: 0.001   # How fast it learns
-    hidden_size: 128       # Size of the neural network
+    learning_rate: 0.001
+    hidden_size: 128
 
-# What kind of challenges?
 environment:
   type: puzzle
   initial_difficulty: easy
 
-# Which LLM creates challenges?
 llm:
-  type: mock               # Change to "openai" for real AI
+  type: mock
 ```
 
----
+Change the agent type, environment type, LLM backend, or any hyperparameter here. The CLI flags override these values when you run a command.
 
-## 🐳 Run in Docker
+## Docker
+
+You can run everything inside a container:
 
 ```bash
-# Train inside a container
 docker compose run --rm train
-
-# View the dashboard
 docker compose up dashboard
 ```
 
----
-
-## 📁 Project Layout
+## Project structure
 
 ```
 envgen-llm/
-├── envgen/                  # Main library code
-│   ├── agents/              # Different AI agents (PPO, GRPO, etc.)
-│   ├── environments/        # Training scenarios (maze, puzzle, etc.)
-│   ├── llm/                 # LLM integrations (OpenAI, Ollama, etc.)
-│   ├── pipeline/            # The main training loop
-│   ├── rewards/             # How agents get scored
-│   ├── evaluators/          # Skill measurement
-│   ├── curriculum/          # Difficulty progression
-│   ├── benchmark/           # Testing and comparison tools
-│   ├── dashboard/           # Web UI for viewing results
-│   ├── cli/                 # Command-line tools
-│   ├── config/              # YAML configuration loader
-│   └── utils/               # Helper tools (logging, etc.)
-├── examples/                # Ready-to-run demos
-├── tests/                   # Test suite (316 tests)
-├── notebooks/               # Interactive Jupyter tutorials
-├── docs/                    # Full documentation site
-├── configs/                 # Configuration files
-├── benchmarks/              # Speed and performance tests
-└── Dockerfile               # Container setup
+envgen/                  Main library
+  agents/                AI agents
+  environments/          Training scenarios
+  llm/                   LLM integrations
+  pipeline/              Training loop
+  rewards/               Scoring system
+  evaluators/            Skill measurement
+  curriculum/            Difficulty progression
+  benchmark/             Comparison tools
+  dashboard/             Web UI
+  cli/                   Command-line tools
+  config/                YAML loader
+  utils/                 Helpers
+examples/                Demo scripts
+tests/                   Test suite
+notebooks/               Jupyter tutorials
+docs/                    Documentation site
+configs/                 Configuration files
+benchmarks/              Performance tests
 ```
 
----
+## Learn more
 
-## 📖 Learn More
+The notebooks are the best way to learn. Open them in Jupyter and run each cell:
 
-- **[Getting Started Notebook](notebooks/getting_started.ipynb)** — Interactive tutorial
-- **[Agent Comparison](notebooks/agent_comparison.ipynb)** — See which agent works best
-- **[Environment Explorer](notebooks/environment_exploration.ipynb)** — Try all environments
-- **[LLM Integration](notebooks/llm_integration.ipynb)** — Connect real AI models
-- **[Full Documentation](https://your-docs-url)** — API reference and guides
-- **[Troubleshooting Guide](TROUBLESHOOTING.md)** — Common problems and fixes
-- **[Changelog](CHANGELOG.md)** — What's new in each version
-- **[Contributing](CONTRIBUTING.md)** — How to help improve the project
+notebooks/getting_started.ipynb walks you through the basics step by step.
 
----
+notebooks/agent_comparison.ipynb compares all agent types side by side.
 
-## 📜 License
+notebooks/environment_exploration.ipynb lets you try every environment.
 
-MIT — do what you want with it. See [LICENSE](LICENSE) for details.
+notebooks/llm_integration.ipynb shows how to connect real LLM models.
 
----
+For other resources:
 
-## 💡 Need Help?
+TROUBLESHOOTING.md covers common problems and how to fix them.
 
-- Check [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common issues
-- Open an issue on GitHub for bugs or questions
-- The project is actively maintained and welcomes contributions
+CHANGELOG.md lists what changed in each version.
 
-Built with ❤️ for the AI research community.
+CONTRIBUTING.md explains how to help improve the project.
+
+MIGRATION.md documents how to upgrade between versions.
+
+## License
+
+MIT. Do what you want with this code. See LICENSE for the full text.
+
+## Need help
+
+Check TROUBLESHOOTING.md first. If your issue is not there, open a GitHub issue and we will help.
