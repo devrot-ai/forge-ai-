@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EnvGen-LLM Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+            padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #1a1a2e;
+        }
+        .runs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 16px;
+            margin-bottom: 30px;
+        }
+        .run-card {
+            background: white;
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: box-shadow 0.2s;
+        }
+        .run-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .run-card.selected { border: 2px solid #4361ee; }
+        .run-card h3 { font-size: 14px; color: #666; margin-bottom: 8px; word-break: break-all; }
+        .run-card .stats { display: flex; gap: 16px; flex-wrap: wrap; }
+        .run-card .stat { font-size: 13px; }
+        .run-card .stat strong { color: #4361ee; }
+        .chart-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .chart-container h2 { font-size: 18px; margin-bottom: 16px; color: #1a1a2e; }
+        .no-runs {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+            font-size: 16px;
+        }
+        .skills-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        .skills-table th, .skills-table td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        .skills-table th { background: #f8f9fa; font-size: 13px; color: #666; }
+        .skills-table td { font-size: 14px; }
+        .bar {
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            min-width: 100px;
+        }
+        .bar-fill {
+            height: 100%;
+            background: #4361ee;
+            border-radius: 4px;
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>EnvGen-LLM Training Dashboard</h1>
+
+        {% if not runs %}
+        <div class="no-runs">
+            <p>No experiment runs found.</p>
+            <p style="margin-top: 10px; font-size: 14px;">
+                Run training with <code>--log-dir ./logs</code> to enable experiment logging.
+            </p>
+        </div>
+        {% else %}
+
+        <div class="runs-grid" id="runsGrid">
+            {% for run in runs %}
+            <div class="run-card" data-run="{{ run.name }}" onclick="selectRun('{{ run.name }}')">
+                <h3>{{ run.name }}</h3>
+                <div class="stats">
+                    <div class="stat">Cycles: <strong>{{ run.total_cycles }}</strong></div>
+                    <div class="stat">Time: <strong>{{ "%.1f"|format(run.total_time_seconds) }}s</strong></div>
+                    {% if run.mean_reward is not none %}
+                    <div class="stat">Mean Reward: <strong>{{ "%.2f"|format(run.mean_reward) }}</strong></div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="chart-container">
+            <h2>Reward Over Cycles</h2>
+            <canvas id="rewardChart" height="100"></canvas>
+        </div>
+
+        <div class="chart-container">
+            <h2>Skill Scores Over Cycles</h2>
+            <canvas id="skillChart" height="100"></canvas>
+        </div>
+
+        <div class="chart-container" id="skillsTableContainer" style="display:none;">
+            <h2>Final Skill Scores</h2>
+            <table class="skills-table" id="skillsTable">
+                <thead>
+                    <tr>
+                        <th>Run</th>
+                        <th>Skill</th>
+                        <th>Score</th>
+                        <th>Progress</th>
+                    </tr>
+                </thead>
+                <tbody id="skillsTableBody"></tbody>
+            </table>
+        </div>
+
+        {% endif %}
+    </div>
+
+    <script>
+        const runsData = {{ runs | tojson }};
+        let selectedRuns = [];
+        let rewardChart = null;
+        let skillChart = null;
+
+        const colors = [
+            '#4361ee', '#f72585', '#4cc9f0', '#7209b7',
+            '#3a0ca3', '#4895ef', '#560bad', '#480ca8',
+            '#f72585', '#7209b7', '#3a0ca3', '#4361ee'
+        ];
+
+        function selectRun(runName) {
+            const idx = selectedRuns.indexOf(runName);
+            if (idx >= 0) {
+                selectedRuns.splice(idx, 1);
+            } else {
+                selectedRuns.push(runName);
+            }
+            updateSelection();
+            updateCharts();
+        }
+
+        function updateSelection() {
+            document.querySelectorAll('.run-card').forEach(card => {
+                const run = card.dataset.run;
+                card.classList.toggle('selected', selectedRuns.includes(run));
+            });
+        }
+
+        async function fetchMetrics(runName) {
+            const resp = await fetch(`/api/run/${encodeURIComponent(runName)}/metrics`);
+            const data = await resp.json();
+            return data.metrics || [];
+        }
+
+        async function updateCharts() {
+            if (selectedRuns.length === 0) {
+                if (rewardChart) { rewardChart.destroy(); rewardChart = null; }
+                if (skillChart) { skillChart.destroy(); skillChart = null; }
+                document.getElementById('skillsTableContainer').style.display = 'none';
+                return;
+            }
+
+            const allMetrics = {};
+            for (const runName of selectedRuns) {
+                allMetrics[runName] = await fetchMetrics(runName);
+            }
+
+            updateRewardChart(allMetrics);
+            updateSkillChart(allMetrics);
+            updateSkillsTable(allMetrics);
+        }
+
+        function updateRewardChart(allMetrics) {
+            const datasets = [];
+            const labels = [];
+
+            for (let i = 0; i < selectedRuns.length; i++) {
+                const runName = selectedRuns[i];
+                const metrics = allMetrics[runName] || [];
+                const cycleRewards = metrics
+                    .filter(m => m.rewards && m.rewards.mean_reward !== undefined)
+                    .map(m => ({ cycle: m.cycle, reward: m.rewards.mean_reward }));
+
+                if (cycleRewards.length > 0) {
+                    cycleRewards.forEach(c => {
+                        if (!labels.includes(c.cycle)) labels.push(c.cycle);
+                    });
+                }
+
+                datasets.push({
+                    label: runName,
+                    data: cycleRewards.map(c => c.reward),
+                    borderColor: colors[i % colors.length],
+                    backgroundColor: colors[i % colors.length] + '20',
+                    tension: 0.3,
+                    fill: false,
+                });
+            }
+
+            labels.sort((a, b) => a - b);
+
+            if (rewardChart) rewardChart.destroy();
+            const ctx = document.getElementById('rewardChart').getContext('2d');
+            rewardChart = new Chart(ctx, {
+                type: 'line',
+                data: { labels: labels.map(String), datasets },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: { title: { display: true, text: 'Cycle' } },
+                        y: { title: { display: true, text: 'Mean Reward' } }
+                    },
+                    plugins: { legend: { position: 'top' } }
+                }
+            });
+        }
+
+        function updateSkillChart(allMetrics) {
+            const skillNames = new Set();
+            for (const metrics of Object.values(allMetrics)) {
+                for (const m of metrics) {
+                    if (m.skill_scores) {
+                        Object.keys(m.skill_scores).forEach(s => skillNames.add(s));
+                    }
+                }
+            }
+
+            const datasets = [];
+            const labels = [];
+
+            for (const m of (allMetrics[selectedRuns[0]] || [])) {
+                if (m.cycle && !labels.includes(m.cycle)) labels.push(m.cycle);
+            }
+            labels.sort((a, b) => a - b);
+
+            const skillList = Array.from(skillNames);
+            for (let i = 0; i < selectedRuns.length; i++) {
+                const runName = selectedRuns[i];
+                const metrics = allMetrics[runName] || [];
+
+                for (const skill of skillList) {
+                    const data = labels.map(cycle => {
+                        const m = metrics.find(m => m.cycle === cycle && m.skill_scores && m.skill_scores[skill] !== undefined);
+                        return m ? m.skill_scores[skill] : null;
+                    });
+
+                    datasets.push({
+                        label: `${runName} - ${skill}`,
+                        data,
+                        borderColor: colors[i % colors.length],
+                        borderDash: skill === skillList[0] ? [] : [5, 5],
+                        tension: 0.3,
+                        fill: false,
+                    });
+                }
+            }
+
+            if (skillChart) skillChart.destroy();
+            const ctx = document.getElementById('skillChart').getContext('2d');
+            skillChart = new Chart(ctx, {
+                type: 'line',
+                data: { labels: labels.map(String), datasets },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: { title: { display: true, text: 'Cycle' } },
+                        y: { title: { display: true, text: 'Score' }, min: 0, max: 1 }
+                    },
+                    plugins: { legend: { position: 'top' } }
+                }
+            });
+        }
+
+        function updateSkillsTable(allMetrics) {
+            const container = document.getElementById('skillsTableContainer');
+            const tbody = document.getElementById('skillsTableBody');
+            tbody.innerHTML = '';
+
+            for (const runName of selectedRuns) {
+                const runInfo = runsData.find(r => r.name === runName);
+                const skills = runInfo ? runInfo.final_skill_scores : {};
+
+                for (const [skill, score] of Object.entries(skills)) {
+                    const row = document.createElement('tr');
+                    const pct = (score * 100).toFixed(1);
+                    row.innerHTML = `
+                        <td>${runName}</td>
+                        <td>${skill}</td>
+                        <td>${score.toFixed(3)}</td>
+                        <td>
+                            <div class="bar">
+                                <div class="bar-fill" style="width: ${pct}%"></div>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                }
+            }
+
+            container.style.display = tbody.innerHTML ? 'block' : 'none';
+        }
+
+        // Auto-select first run on load
+        {% if runs %}
+        selectRun('{{ runs[0].name }}');
+        {% endif %}
+    </script>
+</body>
+</html>
